@@ -27,9 +27,12 @@ The other obvious thing that's still missing from our pastebin API is the code h
 
 Unlike all our other API endpoints, we don't want to use JSON, but instead just present an HTML representation.  There are two style of HTML renderer provided by REST framework, one for dealing with HTML rendered using templates, the other for dealing with pre-rendered HTML.  The second renderer is the one we'd like to use for this endpoint.
 
-The other thing we need to consider when creating the code highlight view is that there's no existing concreate generic view that we can use.  We're not returning an object instance, but instead a property of an object instance.
+The other thing we need to consider when creating the code highlight view is that there's no existing concrete generic view that we can use.  We're not returning an object instance, but instead a property of an object instance.
 
-Instead of using a concrete generic view, we'll use the base class for representing instances, and create our own `.get()` method.
+Instead of using a concrete generic view, we'll use the base class for representing instances, and create our own `.get()` method. In your snippets.views add:
+
+    from rest_framework import renderers
+    from rest_framework.response import Response
 
     class SnippetHighlight(generics.SingleObjectAPIView):
         model = Snippet
@@ -74,7 +77,7 @@ We can easily re-write our existing serializers to use hyperlinking.
 
     class SnippetSerializer(serializers.HyperlinkedModelSerializer):
         owner = serializers.Field(source='owner.username')
-        highlight = serializers.HyperlinkedIdentityField(view_name='snippet-highlight')
+        highlight = serializers.HyperlinkedIdentityField(view_name='snippet-highlight', format='html')
     
         class Meta:
             model = models.Snippet
@@ -90,6 +93,8 @@ We can easily re-write our existing serializers to use hyperlinking.
             fields = ('url', 'username', 'snippets')
 
 Notice that we've also added a new `'highlight'` field.  This field is of the same type as the `url` field, except that it points to the `'snippet-highlight'` url pattern, instead of the `'snippet-detail'` url pattern.
+
+Because we've included format suffixed URLs such as `'.json'`, we also need to indicate on the `highlight` field that any format suffixed hyperlinks it returns should use the `'.html'` suffix.
 
 ## Making sure our URL patterns are named
 
@@ -109,7 +114,7 @@ After adding all those names into our URLconf, our final `'urls.py'` file should
             views.SnippetList.as_view(),
             name='snippet-list'),
         url(r'^snippets/(?P<pk>[0-9]+)/$',
-            views.SnippetInstance.as_view(),
+            views.SnippetDetail.as_view(),
             name='snippet-detail'),
         url(r'^snippets/(?P<pk>[0-9]+)/highlight/$'
             views.SnippetHighlight.as_view(),
@@ -127,6 +132,20 @@ After adding all those names into our URLconf, our final `'urls.py'` file should
         url(r'^api-auth/', include('rest_framework.urls',
                                    namespace='rest_framework'))
     )
+
+## Adding pagination
+
+The list views for users and code snippets could end up returning quite a lot of instances, so really we'd like to make sure we paginate the results, and allow the API client to step through each of the individual pages.
+
+We can change the default list style to use pagination, by modifying our `settings.py` file slightly.  Add the following setting:
+
+    REST_FRAMEWORK = {
+        'PAGINATE_BY': 10
+    }
+
+Note that settings in REST framework are all namespaced into a single dictionary setting, named 'REST_FRAMEWORK', which helps keep them well seperated from your other project settings.
+
+We could also customize the pagination style if we needed too, but in this case we'll just stick with the default.
 
 ## Reviewing our work
 
@@ -151,7 +170,7 @@ We've reached the end of our tutorial.  If you want to get more involved in the 
 **Now go build some awesome things.**
 
 [repo]: https://github.com/tomchristie/rest-framework-tutorial
-[sandbox]: http://sultry-coast-6726.herokuapp.com/
+[sandbox]: http://restframework.herokuapp.com/
 [github]: https://github.com/tomchristie/django-rest-framework
 [group]: https://groups.google.com/forum/?fromgroups#!forum/django-rest-framework
 [twitter]: https://twitter.com/_tomchristie

@@ -5,7 +5,7 @@ import warnings
 
 from django.core import validators
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
-from django.core.urlresolvers import resolve
+from django.core.urlresolvers import resolve, get_script_prefix
 from django.conf import settings
 from django.forms import widgets
 from django.utils.encoding import is_protected_type, smart_unicode
@@ -13,6 +13,7 @@ from django.utils.translation import ugettext_lazy as _
 from rest_framework.reverse import reverse
 from rest_framework.compat import parse_date, parse_datetime
 from rest_framework.compat import timezone
+from urlparse import urlparse
 
 
 def is_simple_callable(obj):
@@ -43,7 +44,7 @@ class Field(object):
         Called to set up a field prior to field_to_native or field_from_native.
 
         parent - The parent serializer.
-        model_field - The model field this field corrosponds to, if one exists.
+        model_field - The model field this field corresponds to, if one exists.
         """
         self.parent = parent
         self.root = parent.root or parent
@@ -113,7 +114,7 @@ class WritableField(Field):
 
     def __init__(self, source=None, read_only=False, required=None,
                  validators=[], error_messages=None, widget=None,
-                 default=None):
+                 default=None, blank=None):
 
         super(WritableField, self).__init__(source=source)
 
@@ -132,6 +133,7 @@ class WritableField(Field):
 
         self.validators = self.default_validators + validators
         self.default = default or self.default
+        self.blank = blank
 
         # Widgets are ony used for HTML forms.
         widget = widget or self.widget
@@ -197,7 +199,7 @@ class WritableField(Field):
 
 class ModelField(WritableField):
     """
-    A generic field that can be used against an arbirtrary model field.
+    A generic field that can be used against an arbitrary model field.
     """
     def __init__(self, *args, **kwargs):
         try:
@@ -244,7 +246,7 @@ class RelatedField(WritableField):
             return
 
         value = data.get(field_name)
-        into[(self.source or field_name) + '_id'] = self.from_native(value)
+        into[(self.source or field_name)] = self.from_native(value)
 
 
 class ManyRelatedMixin(object):
@@ -287,6 +289,15 @@ class PrimaryKeyRelatedField(RelatedField):
 
     def to_native(self, pk):
         return pk
+
+    def from_native(self, data):
+        if self.queryset is None:
+            raise Exception('Writable related fields must include a `queryset` argument')
+
+        try:
+            return self.queryset.get(pk=data)
+        except ObjectDoesNotExist:
+            raise ValidationError('Invalid hyperlink - object does not exist.')
 
     def field_to_native(self, obj, field_name):
         try:
@@ -366,6 +377,16 @@ class HyperlinkedRelatedField(RelatedField):
     def from_native(self, value):
         # Convert URL -> model instance pk
         # TODO: Use values_list
+        if self.queryset is None:
+            raise Exception('Writable related fields must include a `queryset` argument')
+
+        if value.startswith('http:') or value.startswith('https:'):
+            # If needed convert absolute URLs to relative path
+            value = urlparse(value).path
+            prefix = get_script_prefix()
+            if value.startswith(prefix):
+                value = '/' + value[len(prefix):]
+
         try:
             match = resolve(value)
         except:
@@ -379,7 +400,7 @@ class HyperlinkedRelatedField(RelatedField):
 
         # Try explicit primary key.
         if pk is not None:
-            return pk
+            queryset = self.queryset.filter(pk=pk)
         # Next, try looking up by slug.
         elif slug is not None:
             slug_field = self.get_slug_field()
@@ -392,7 +413,7 @@ class HyperlinkedRelatedField(RelatedField):
             obj = queryset.get()
         except ObjectDoesNotExist:
             raise ValidationError('Invalid hyperlink - object does not exist.')
-        return obj.pk
+        return obj
 
 
 class ManyHyperlinkedRelatedField(ManyRelatedMixin, HyperlinkedRelatedField):
@@ -451,6 +472,16 @@ class CharField(WritableField):
             self.validators.append(validators.MinLengthValidator(min_length))
         if max_length is not None:
             self.validators.append(validators.MaxLengthValidator(max_length))
+
+    def validate(self, value):
+        """
+        Validates that the value is supplied (if required).
+        """
+        # if empty string and allow blank
+        if self.blank and not value:
+            return
+        else:
+            super(CharField, self).validate(value)
 
     def from_native(self, value):
         if isinstance(value, basestring) or value is None:

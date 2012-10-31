@@ -4,7 +4,13 @@
 
 This tutorial will cover creating a simple pastebin code highlighting Web API. Along the way it will introduce the various components that make up REST framework, and give you a comprehensive understanding of how everything fits together.
 
-The tutorial is fairly in-depth, so you should probably get a cookie and a cup of your favorite brew before getting started.  If you just want a quick overview, you should head over to the [quickstart] documentation instead.
+The tutorial is fairly in-depth, so you should probably get a cookie and a cup of your favorite brew before getting started.<!--  If you just want a quick overview, you should head over to the [quickstart] documentation instead. -->
+
+---
+
+**Note**: The final code for this tutorial is available in the [tomchristie/rest-framework-tutorial][repo] repository on GitHub.  There is also a sandbox version for testing, [available here][sandbox].
+
+---
 
 ## Setting up a new environment
 
@@ -194,8 +200,8 @@ Open the file `snippets/serializers.py` again, and edit the `SnippetSerializer` 
 
     class SnippetSerializer(serializers.ModelSerializer):
         class Meta:
-            model = models.Snippet
-            fields = ('pk', 'title', 'code', 'linenos', 'language', 'style')
+            model = Snippet
+            fields = ('id', 'title', 'code', 'linenos', 'language', 'style')
 
 
 
@@ -303,5 +309,7 @@ Our API views don't do anything particularly special at the moment, beyond serve
 We'll see how we can start to improve things in [part 2 of the tutorial][tut-2].
 
 [quickstart]: quickstart.md
+[repo]: https://github.com/tomchristie/rest-framework-tutorial
+[sandbox]: http://restframework.herokuapp.com/
 [virtualenv]: http://www.virtualenv.org/en/latest/index.html
 [tut-2]: 2-requests-and-responses.md

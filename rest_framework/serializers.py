@@ -279,7 +279,7 @@ class BaseSerializer(Field):
     def errors(self):
         """
         Run deserialization and return error data,
-        setting self.object if no errors occured.
+        setting self.object if no errors occurred.
         """
         if self._errors is None:
             obj = self.from_native(self.init_data)
@@ -393,6 +393,12 @@ class ModelSerializer(Serializer):
         Creates a default instance of a basic non-relational field.
         """
         kwargs = {}
+
+        kwargs['blank'] = model_field.blank
+
+        if model_field.null:
+            kwargs['required'] = False
+
         if model_field.has_default():
             kwargs['required'] = False
             kwargs['default'] = model_field.get_default()

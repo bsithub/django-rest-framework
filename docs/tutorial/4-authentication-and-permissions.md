@@ -19,7 +19,7 @@ Add the following two fields to the model.
 
 We'd also need to make sure that when the model is saved, that we populate the highlighted field, using the `pygments` code higlighting library.
 
-We'll ned some extra imports:
+We'll need some extra imports:
 
     from pygments.lexers import get_lexer_by_name
     from pygments.formatters import HtmlFormatter
@@ -59,7 +59,7 @@ Now that we've got some users to work with, we'd better add representations of t
 
         class Meta:
             model = User
-            fields = ('pk', 'username', 'snippets')
+            fields = ('id', 'username', 'snippets')
 
 Because `'snippets'` is a *reverse* relationship on the User model, it will not be included by default when using the `ModelSerializer` class, so we've needed to add an explicit field for it.
 
@@ -85,7 +85,7 @@ Right now, if we created a code snippet, there'd be no way of associating the us
 
 The way we deal with that is by overriding a `.pre_save()` method on our snippet views, that allows us to handle any information that is implicit in the incoming request or requested URL.
 
-On **both** the `SnippetList` and `SnippetInstance` view classes, add the following method:
+On **both** the `SnippetList` and `SnippetDetail` view classes, add the following method:
 
     def pre_save(self, obj):
         obj.owner = self.request.user
@@ -100,7 +100,7 @@ Add the following field to the serializer definition:
 
 **Note**: Make sure you also add `'owner',` to the list of fields in the inner `Meta` class.
 
-This field is doing something quite interesting.  The `source` argument controls which attribtue is used to populate a field, and can point at any attribute on the serialized instance.  It can also take the dotted notation shown above, in which case it will traverse the given attributes, in a similar way as is used with Django's template language.
+This field is doing something quite interesting.  The `source` argument controls which attribute is used to populate a field, and can point at any attribute on the serialized instance.  It can also take the dotted notation shown above, in which case it will traverse the given attributes, in a similar way as it is used with Django's template language.
 
 The field we've added is the untyped `Field` class, in contrast to the other typed fields, such as `CharField`, `BooleanField` etc...  The untyped `Field` is always read-only, and will be used for serialized representations, but will not be used for updating model instances when they are deserialized.
 
@@ -112,7 +112,11 @@ Now that code snippets are associated with users we want to make sure that only 
 
 REST framework includes a number of permission classes that we can use to restrict who can access a given view.  In this case the one we're looking for is `IsAuthenticatedOrReadOnly`, which will ensure that authenticated requests get read-write access, and unauthenticated requests get read-only access.
 
-Add the following property to **both** the `SnippetList` and `SnippetInstance` view classes.
+First add the following import in the views module
+
+    from rest_framework import permissions
+
+Then, add the following property to **both** the `SnippetList` and `SnippetDetail` view classes.
 
     permission_classes = (permissions.IsAuthenticatedOrReadOnly,)
 
@@ -120,7 +124,7 @@ Add the following property to **both** the `SnippetList` and `SnippetInstance` v
 
 ## Adding login to the Browseable API
 
-If you open a browser and navigate to the browseable API at the moment, you'll find you're no longer able to create new code snippets.  In order to do so we'd need to be able to login as a user.
+If you open a browser and navigate to the browseable API at the moment, you'll find that you're no longer able to create new code snippets. In order to do so we'd need to be able to login as a user.
 
 We can add a login view for use with the browseable API, by editing our URLconf once more.
 
@@ -169,7 +173,7 @@ In the snippets app, create a new file, `permissions.py`
             # Write permissions are only allowed to the owner of the snippet
             return obj.owner == request.user
 
-Now we can add that custom permission to our snippet instance endpoint, by editing the `permission_classes` property on the `SnippetInstance` class:
+Now we can add that custom permission to our snippet instance endpoint, by editing the `permission_classes` property on the `SnippetDetail` class:
 
     permission_classes = (permissions.IsAuthenticatedOrReadOnly,
                           IsOwnerOrReadOnly,)
